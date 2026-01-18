@@ -201,12 +201,37 @@ class GameService:
         # Check if round is complete
         if next_index == 0:
             game.current_round += 1
-            # Check if game is over
+            # Check if game is over (all rounds complete)
             if game.current_round > game.total_rounds:
-                game.status = GameStatus.FINISHED
+                GameService._finalize_game(game)
                 return
 
+        # Check if tiles are exhausted
+        if len(game.available_tiles) == 0:
+            GameService._finalize_game(game)
+            return
+
         game.current_turn_player_id = turn_order[next_index]
+
+    @staticmethod
+    def _finalize_game(game: Game) -> None:
+        """Finalize game and calculate final scores."""
+        game.status = GameStatus.FINISHED
+
+        # Calculate final scores for all players
+        final_scores = GameService.calculate_final_scores(game)
+
+        # Update each player's final score
+        for score_data in final_scores:
+            GameService.update_player_state(game, score_data["player_id"], {
+                "final_score": score_data["total_score"],
+                "score_breakdown": {
+                    "base_score": score_data["base_score"],
+                    "blueprint_score": score_data["blueprint_score"],
+                    "worker_score": score_data["worker_score"],
+                    "resource_penalty": score_data["resource_penalty"],
+                },
+            })
 
     @staticmethod
     async def record_action(
