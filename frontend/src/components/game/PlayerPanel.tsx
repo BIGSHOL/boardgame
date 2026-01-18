@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { GamePlayer, WorkerType } from '../../types/game'
 import { ResourceDisplay } from './ResourceDisplay'
 import { WorkerDisplay } from './WorkerDisplay'
@@ -25,12 +26,28 @@ export function PlayerPanel({
   }
 
   return (
-    <div
+    <motion.div
       className={`p-4 rounded-lg border-l-4 ${colorStyles[player.color]} ${
         isCurrentTurn
           ? 'bg-hanyang-gold/10 ring-2 ring-hanyang-gold'
           : 'bg-hanyang-paper'
       } ${isCurrentPlayer ? 'shadow-lg' : ''}`}
+      animate={
+        isCurrentTurn
+          ? {
+              boxShadow: [
+                '0 0 0 0 rgba(202, 138, 4, 0)',
+                '0 0 15px 5px rgba(202, 138, 4, 0.3)',
+                '0 0 0 0 rgba(202, 138, 4, 0)',
+              ],
+            }
+          : { boxShadow: '0 0 0 0 rgba(202, 138, 4, 0)' }
+      }
+      transition={
+        isCurrentTurn
+          ? { duration: 2, repeat: Infinity, ease: 'easeInOut' }
+          : { duration: 0.3 }
+      }
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -80,7 +97,7 @@ export function PlayerPanel({
           청사진: {player.blueprints.length}장
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
 

@@ -2,8 +2,9 @@ import { useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
-import { useGameWebSocket } from '../hooks/useGameWebSocket'
+import { useGameWebSocket, useToast } from '../hooks'
 import { GameBoard, PlayerPanel, TileSelector, BlueprintSelector, BlueprintPanel } from '../components/game'
+import { Toast } from '../components/ui'
 import type { WorkerType, BoardPosition, TileInfo, BlueprintInfo } from '../types/game'
 
 export function Game() {
@@ -33,16 +34,18 @@ export function Game() {
 
   const gameId = id ? parseInt(id, 10) : null
 
+  // Toast notifications
+  const { toast, showTurnNotification, showSuccess, hideToast } = useToast()
+
   // WebSocket callbacks
   const handleYourTurn = useCallback(() => {
-    // Play notification sound or show toast
-    console.log('Your turn!')
-  }, [])
+    showTurnNotification('당신의 턴입니다!')
+  }, [showTurnNotification])
 
   const handleGameEnded = useCallback((winnerId: number, winnerName: string) => {
-    console.log(`Game ended! Winner: ${winnerName}`)
-    navigate(`/game/${gameId}/result`)
-  }, [gameId, navigate])
+    showSuccess(`게임 종료! 우승: ${winnerName}`)
+    setTimeout(() => navigate(`/game/${gameId}/result`), 2000)
+  }, [gameId, navigate, showSuccess])
 
   // WebSocket connection
   const { isConnected, connectionState } = useGameWebSocket({
@@ -208,6 +211,15 @@ export function Game() {
 
   return (
     <div className="min-h-screen bg-hanyang-cream p-4">
+      {/* Toast notifications */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+        duration={3000}
+      />
+
       {/* Header */}
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-hanyang-brown">
