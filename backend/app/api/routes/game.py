@@ -17,6 +17,7 @@ from app.schemas.game import (
     ActionType,
 )
 from app.services.game_service import GameService
+from app.websocket.game_manager import game_manager, GameMessage, MessageType
 
 router = APIRouter()
 
@@ -203,10 +204,47 @@ async def perform_action(
 
         await db.commit()
 
+        # Broadcast game state update to all players via WebSocket
+        new_state = GameService.to_game_state_response(game)
+        await game_manager.broadcast_to_game(
+            game_id,
+            GameMessage(
+                type=MessageType.GAME_STATE_UPDATE,
+                data={"game_state": new_state}
+            )
+        )
+
+        # If turn changed, notify new current player
+        if game.current_turn_player_id != player["id"]:
+            await game_manager.send_to_player(
+                game_id,
+                game.current_turn_player_id,
+                GameMessage(
+                    type=MessageType.YOUR_TURN,
+                    data={"message": "It's your turn!", "round": game.current_round}
+                )
+            )
+
+        # If game ended, broadcast game ended message
+        if game.status == GameStatus.FINISHED:
+            final_scores = GameService.calculate_final_scores(game)
+            winner = final_scores[0] if final_scores else None
+            await game_manager.broadcast_to_game(
+                game_id,
+                GameMessage(
+                    type=MessageType.GAME_ENDED,
+                    data={
+                        "winner_id": winner["player_id"] if winner else None,
+                        "winner_name": winner["username"] if winner else None,
+                        "rankings": final_scores
+                    }
+                )
+            )
+
         return {
             "success": True,
             "action_result": result,
-            "new_state": GameService.to_game_state_response(game),
+            "new_state": new_state,
         }
 
     except ValueError as e:

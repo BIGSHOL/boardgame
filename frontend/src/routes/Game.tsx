@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
+import { useGameWebSocket } from '../hooks/useGameWebSocket'
 import { GameBoard, PlayerPanel, TileSelector, BlueprintSelector, BlueprintPanel } from '../components/game'
 import type { WorkerType, BoardPosition, TileInfo, BlueprintInfo } from '../types/game'
 
@@ -31,6 +32,24 @@ export function Game() {
   } = useGameStore()
 
   const gameId = id ? parseInt(id, 10) : null
+
+  // WebSocket callbacks
+  const handleYourTurn = useCallback(() => {
+    // Play notification sound or show toast
+    console.log('Your turn!')
+  }, [])
+
+  const handleGameEnded = useCallback((winnerId: number, winnerName: string) => {
+    console.log(`Game ended! Winner: ${winnerName}`)
+    navigate(`/game/${gameId}/result`)
+  }, [gameId, navigate])
+
+  // WebSocket connection
+  const { isConnected, connectionState } = useGameWebSocket({
+    gameId: gameId || 0,
+    onYourTurn: handleYourTurn,
+    onGameEnded: handleGameEnded,
+  })
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -195,6 +214,16 @@ export function Game() {
           한양: 도읍의 설계자들
         </h1>
         <div className="flex items-center gap-4">
+          {/* WebSocket connection indicator */}
+          <span
+            className={`flex items-center gap-1 text-sm ${
+              isConnected ? 'text-green-600' : 'text-red-500'
+            }`}
+            title={connectionState}
+          >
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            {isConnected ? '실시간' : '연결 끊김'}
+          </span>
           <span className="text-hanyang-brown">
             라운드 {gameState.current_round}/{gameState.total_rounds}
           </span>
