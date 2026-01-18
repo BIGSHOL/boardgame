@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(project-bootstrap)",
+      "Skill(project-bootstrap:*)",
+      "Skill(socrates)",
+      "Skill(socrates:*)",
+      "Skill(tasks-generator)",
+      "Skill(tasks-generator:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(git init:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm install)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}

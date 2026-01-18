@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Noto Serif KR', serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-hanyang-gold hover:bg-hanyang-gold-dark text-hanyang-navy font-medium py-2 px-4 rounded transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-hanyang-stone hover:bg-hanyang-stone-light text-white font-medium py-2 px-4 rounded transition-colors;
+  }
+
+  .card {
+    @apply bg-hanyang-parchment rounded-lg shadow-md p-4;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-hanyang-stone rounded focus:outline-none focus:ring-2 focus:ring-hanyang-gold bg-white;
+  }
+}
