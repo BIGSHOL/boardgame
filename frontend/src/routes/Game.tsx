@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
-import { GameBoard, PlayerPanel, TileSelector } from '../components/game'
-import type { WorkerType, BoardPosition, TileInfo } from '../types/game'
+import { GameBoard, PlayerPanel, TileSelector, BlueprintSelector, BlueprintPanel } from '../components/game'
+import type { WorkerType, BoardPosition, TileInfo, BlueprintInfo } from '../types/game'
 
 export function Game() {
   const { id } = useParams<{ id: string }>()
@@ -14,14 +14,18 @@ export function Game() {
     validActions,
     selectedWorker,
     selectedTile,
+    selectedBlueprint,
     selectedPosition,
+    playerBlueprints,
     isLoading,
     error,
     fetchGameState,
     fetchValidActions,
+    fetchPlayerBlueprints,
     performAction,
     selectWorker,
     selectTile,
+    selectBlueprint,
     selectPosition,
     clearError,
   } = useGameStore()
@@ -40,8 +44,9 @@ export function Game() {
     if (gameId) {
       fetchGameState(gameId)
       fetchValidActions(gameId)
+      fetchPlayerBlueprints(gameId)
     }
-  }, [gameId, fetchGameState, fetchValidActions])
+  }, [gameId, fetchGameState, fetchValidActions, fetchPlayerBlueprints])
 
   // Find current player
   const currentPlayer = gameState?.players.find((p) => p.user_id === user?.id)
@@ -113,6 +118,23 @@ export function Game() {
   const tileAction = validActions.find((a) => a.action_type === 'place_tile') as any
   const availableTiles: TileInfo[] = tileAction?.available_tiles || []
   const validTilePositions: BoardPosition[] = tileAction?.valid_positions || []
+
+  // Get available blueprints from valid actions
+  const blueprintAction = validActions.find((a) => a.action_type === 'select_blueprint') as any
+  const availableBlueprints: BlueprintInfo[] = blueprintAction?.available_blueprints || []
+
+  // Handle blueprint selection confirmation
+  const handleConfirmBlueprintSelection = () => {
+    if (!gameId || !selectedBlueprint) return
+
+    performAction(gameId, {
+      action_type: 'select_blueprint',
+      payload: {
+        type: 'select_blueprint',
+        blueprint_id: selectedBlueprint,
+      },
+    })
+  }
 
   // Handle end turn
   const handleEndTurn = () => {
@@ -242,8 +264,20 @@ export function Game() {
           )}
         </main>
 
-        {/* Right sidebar - Tile Selection */}
-        <aside className="col-span-3">
+        {/* Right sidebar - Tile/Blueprint Selection */}
+        <aside className="col-span-3 space-y-4">
+          {/* Blueprint Selection (if available) */}
+          {isMyTurn && availableBlueprints.length > 0 && (
+            <BlueprintSelector
+              availableBlueprints={availableBlueprints}
+              selectedBlueprintId={selectedBlueprint}
+              onSelectBlueprint={selectBlueprint}
+              onConfirmSelection={handleConfirmBlueprintSelection}
+              disabled={isLoading}
+            />
+          )}
+
+          {/* Tile Selection */}
           {isMyTurn && availableTiles.length > 0 && currentPlayer && (
             <TileSelector
               availableTiles={availableTiles}
@@ -254,8 +288,16 @@ export function Game() {
             />
           )}
 
+          {/* Player's Blueprints */}
+          {playerBlueprints && playerBlueprints.selected_blueprints.length > 0 && (
+            <BlueprintPanel
+              blueprints={playerBlueprints.selected_blueprints}
+              showProgress={true}
+            />
+          )}
+
           {/* Game info */}
-          <div className="mt-4 p-4 bg-hanyang-paper rounded border border-hanyang-brown/20">
+          <div className="p-4 bg-hanyang-paper rounded border border-hanyang-brown/20">
             <h3 className="font-bold text-hanyang-brown mb-2">게임 정보</h3>
             <ul className="text-sm text-hanyang-brown/70 space-y-1">
               <li>게임 ID: {gameState.id}</li>
