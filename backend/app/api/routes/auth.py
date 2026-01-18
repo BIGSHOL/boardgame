@@ -1,7 +1,7 @@
 """
 Authentication endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     get_password_hash,
+    get_token_from_header,
     verify_password,
 )
 from app.models.user import User
@@ -133,11 +134,43 @@ async def refresh_token(request: RefreshTokenRequest, db: AsyncSession = Depends
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    # TODO: Add proper dependency for token extraction
+    authorization: str | None = Header(None),
 ):
     """Get current user info."""
-    # This will be implemented with proper auth dependency
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Not implemented yet",
-    )
+    token = get_token_from_header(authorization)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header",
+        )
+
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid access token",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is disabled",
+        )
+
+    return user

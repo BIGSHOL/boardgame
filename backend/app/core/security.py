@@ -51,3 +51,13 @@ def decode_token(token: str) -> dict | None:
         return payload
     except JWTError:
         return None
+
+
+def get_token_from_header(authorization: str | None) -> str | None:
+    """Extract token from Authorization header."""
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[1]

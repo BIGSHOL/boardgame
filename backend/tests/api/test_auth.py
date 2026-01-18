@@ -206,3 +206,50 @@ class TestRefreshToken:
             json={"refresh_token": "invalid-token"},
         )
         assert response.status_code == 401
+
+
+class TestGetCurrentUser:
+    """Tests for GET /api/v1/auth/me"""
+
+    async def test_get_me_success(self, client: AsyncClient):
+        """Should return current user info with valid token."""
+        # Create and login user
+        await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "me@example.com",
+                "username": "meuser",
+                "password": "password123",
+            },
+        )
+        login_response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "me@example.com",
+                "password": "password123",
+            },
+        )
+        access_token = login_response.json()["tokens"]["access_token"]
+
+        # Get current user
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == "me@example.com"
+        assert data["username"] == "meuser"
+
+    async def test_get_me_no_token(self, client: AsyncClient):
+        """Should return 401 without token."""
+        response = await client.get("/api/v1/auth/me")
+        assert response.status_code == 401
+
+    async def test_get_me_invalid_token(self, client: AsyncClient):
+        """Should return 401 with invalid token."""
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": "Bearer invalid-token"},
+        )
+        assert response.status_code == 401
