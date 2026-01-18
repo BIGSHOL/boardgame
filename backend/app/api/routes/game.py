@@ -176,6 +176,15 @@ async def perform_action(
                 payload.target_position.model_dump(),
                 payload.slot_index,
             )
+        elif request.action_type == ActionType.PLACE_TILE:
+            payload = request.payload
+            result = await GameService.place_tile(
+                db,
+                game,
+                player["id"],
+                payload.tile_id,
+                payload.position.model_dump(),
+            )
         elif request.action_type == ActionType.END_TURN:
             result = await GameService.end_turn(db, game, player["id"])
         else:
@@ -236,8 +245,31 @@ async def get_valid_actions(
 
     # Check worker placement options
     from app.services.worker_service import PlayerWorkers, WorkerType
+    from app.services.tile_service import TileService
+    from app.services.resource_service import Resources
 
     workers = PlayerWorkers.from_dict(player["workers"])
+    resources = Resources.from_dict(player["resources"])
+
+    # Tile placement options
+    available_tiles = game.available_tiles[:3] if game.available_tiles else []
+    affordable_tiles = []
+    for tile_id in available_tiles:
+        if TileService.can_afford_tile(resources, tile_id):
+            tile_def = TileService.get_tile_definition(tile_id)
+            affordable_tiles.append({
+                "tile_id": tile_id,
+                "name_ko": tile_def.name_ko if tile_def else tile_id,
+                "cost": tile_def.cost.to_dict() if tile_def else {},
+                "base_points": tile_def.base_points if tile_def else 0,
+            })
+
+    if affordable_tiles:
+        valid_actions.append({
+            "action_type": "place_tile",
+            "available_tiles": affordable_tiles,
+            "valid_positions": _get_valid_tile_positions(game),
+        })
 
     # Apprentice placement
     if workers.apprentices.available > 0:
@@ -259,6 +291,23 @@ async def get_valid_actions(
     valid_actions.append({"action_type": "end_turn"})
 
     return {"valid_actions": valid_actions}
+
+
+def _get_valid_tile_positions(game: Game) -> list[dict]:
+    """Get valid positions for tile placement."""
+    valid_positions = []
+    board = game.board
+
+    for row_idx, row in enumerate(board):
+        for col_idx, cell in enumerate(row):
+            # Skip mountains and occupied cells
+            if cell["terrain"] == "mountain":
+                continue
+            if cell["tile"] is not None:
+                continue
+            valid_positions.append({"row": row_idx, "col": col_idx})
+
+    return valid_positions
 
 
 def _get_available_worker_slots(game: Game, worker_type: str) -> list[dict]:

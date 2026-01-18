@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.game import Game, GameAction, GameStatus
 from app.models.lobby import Lobby, LobbyPlayer
-from app.services.resource_service import ResourceService, Resources
+from app.services.resource_service import ResourceService, Resources, ResourceType
 from app.services.worker_service import WorkerService, PlayerWorkers, WorkerState
+from app.services.tile_service import TileService
 
 
 class GameService:
@@ -344,6 +345,131 @@ class GameService:
             "worker_type": worker_type,
             "position": position,
             "slot_index": slot_index,
+        }
+
+    @staticmethod
+    def validate_tile_placement(
+        game: Game,
+        player_id: int,
+        tile_id: str,
+        position: dict,
+    ) -> tuple[bool, str]:
+        """
+        Validate tile placement.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Check if it's player's turn
+        if game.current_turn_player_id != player_id:
+            return False, "Not your turn"
+
+        # Get player state
+        player = GameService.get_player_state(game, player_id)
+        if not player:
+            return False, "Player not found"
+
+        # Check if tile is available
+        available_tiles = game.available_tiles
+        if tile_id not in available_tiles[:3]:  # Only top 3 are selectable
+            return False, "Tile not available for selection"
+
+        # Check if player can afford
+        resources = Resources.from_dict(player["resources"])
+        if not TileService.can_afford_tile(resources, tile_id):
+            return False, "Cannot afford this tile"
+
+        # Validate board placement
+        board = game.board
+        is_valid, error = TileService.validate_placement(board, position, tile_id)
+        if not is_valid:
+            return False, error
+
+        return True, ""
+
+    @staticmethod
+    async def place_tile(
+        db: AsyncSession,
+        game: Game,
+        player_id: int,
+        tile_id: str,
+        position: dict,
+    ) -> dict:
+        """
+        Place a tile on the board.
+
+        Returns:
+            Action result with score breakdown
+        """
+        # Validate
+        is_valid, error = GameService.validate_tile_placement(
+            game, player_id, tile_id, position
+        )
+        if not is_valid:
+            raise ValueError(error)
+
+        # Get player and deduct cost
+        player = GameService.get_player_state(game, player_id)
+        resources = Resources.from_dict(player["resources"])
+        tile_def = TileService.get_tile_definition(tile_id)
+        cost = tile_def.cost.to_resource_dict()
+
+        new_resources = ResourceService.pay_cost(resources, cost)
+
+        # Calculate score
+        board = game.board
+        score_breakdown = TileService.calculate_placement_score(board, position, tile_id)
+
+        # Place tile on board
+        row, col = position["row"], position["col"]
+        placed_tile = TileService.create_placed_tile(tile_id, player_id)
+
+        # Check feng shui
+        if score_breakdown["fengshui"] > 0:
+            placed_tile["fengshui_active"] = True
+
+        board[row][col]["tile"] = placed_tile
+
+        # Remove tile from available pool
+        available_tiles = game.available_tiles
+        available_tiles.remove(tile_id)
+
+        # Update player state
+        new_score = player.get("score", 0) + score_breakdown["total"]
+        placed_tiles = player.get("placed_tiles", [])
+        placed_tiles.append(tile_id)
+
+        GameService.update_player_state(game, player_id, {
+            "resources": new_resources.to_dict(),
+            "score": new_score,
+            "placed_tiles": placed_tiles,
+        })
+
+        # Update game state
+        game.board = board
+        game.available_tiles = available_tiles
+
+        # Record action
+        action = await GameService.record_action(
+            db,
+            game,
+            player_id,
+            "place_tile",
+            {
+                "tile_id": tile_id,
+                "position": position,
+                "score_breakdown": score_breakdown,
+            },
+        )
+
+        await db.flush()
+
+        return {
+            "action_id": action.id,
+            "tile_id": tile_id,
+            "position": position,
+            "score_breakdown": score_breakdown,
+            "new_score": new_score,
         }
 
     @staticmethod
