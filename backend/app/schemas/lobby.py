@@ -35,6 +35,10 @@ class LobbyPlayer(BaseModel):
         from_attributes = True
 
 
+# Alias for router compatibility
+LobbyPlayerResponse = LobbyPlayer
+
+
 # ============================================
 # Request Types
 # ============================================
