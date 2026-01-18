@@ -8,7 +8,8 @@ export type WorkerType = 'apprentice' | 'official'
 export type GameStatus = 'waiting' | 'in_progress' | 'finished'
 export type PlayerColor = 'blue' | 'red' | 'green' | 'yellow'
 export type TerrainType = 'normal' | 'mountain' | 'water'
-export type ActionType = 'place_worker' | 'recall_worker' | 'place_tile' | 'draw_blueprint' | 'end_turn' | 'pass'
+export type ActionType = 'place_worker' | 'recall_worker' | 'place_tile' | 'select_blueprint' | 'end_turn' | 'pass'
+export type BlueprintCategory = 'palace_proximity' | 'category_collection' | 'pattern' | 'special'
 
 // Resource & Worker
 export interface Resources {
@@ -65,7 +66,8 @@ export interface GamePlayer {
   is_ready: boolean
   resources: Resources
   workers: PlayerWorkers
-  blueprints: string[]
+  dealt_blueprints: string[]  // 선택 전 배분된 청사진
+  blueprints: string[]  // 선택한 청사진
   score: number
   placed_tiles: string[]
 }
@@ -108,11 +110,16 @@ export interface PlaceTilePayload {
   position: BoardPosition
 }
 
+export interface SelectBlueprintPayload {
+  type: 'select_blueprint'
+  blueprint_id: string
+}
+
 export interface EndTurnPayload {
   type: 'end_turn'
 }
 
-export type ActionPayload = PlaceWorkerPayload | RecallWorkerPayload | PlaceTilePayload | EndTurnPayload
+export type ActionPayload = PlaceWorkerPayload | RecallWorkerPayload | PlaceTilePayload | SelectBlueprintPayload | EndTurnPayload
 
 // Tile Types
 export type TileCategory = 'palace' | 'government' | 'religious' | 'commercial' | 'residential' | 'gate'
@@ -135,6 +142,32 @@ export interface TilePlacementAction {
   action_type: 'place_tile'
   available_tiles: TileInfo[]
   valid_positions: BoardPosition[]
+}
+
+// Blueprint Types
+export interface BlueprintInfo {
+  blueprint_id: string
+  name_ko: string
+  name_en: string
+  description_ko: string
+  category: BlueprintCategory
+  bonus_points: number
+  condition: {
+    type: string
+    params: Record<string, unknown>
+  }
+  current_score?: number
+  is_completed?: boolean
+}
+
+export interface BlueprintSelectionAction {
+  action_type: 'select_blueprint'
+  available_blueprints: BlueprintInfo[]
+}
+
+export interface PlayerBlueprintsResponse {
+  dealt_blueprints: BlueprintInfo[]
+  selected_blueprints: BlueprintInfo[]
 }
 
 // API Requests
@@ -197,16 +230,20 @@ export interface GameStoreState {
   validActions: ValidAction[]
   selectedWorker: WorkerType | null
   selectedTile: string | null
+  selectedBlueprint: string | null
   selectedPosition: BoardPosition | null
+  playerBlueprints: PlayerBlueprintsResponse | null
   isLoading: boolean
   error: string | null
 
   // Actions
   fetchGameState: (gameId: number) => Promise<void>
   fetchValidActions: (gameId: number) => Promise<void>
+  fetchPlayerBlueprints: (gameId: number) => Promise<void>
   performAction: (gameId: number, action: GameActionRequest) => Promise<void>
   selectWorker: (workerType: WorkerType | null) => void
   selectTile: (tileId: string | null) => void
+  selectBlueprint: (blueprintId: string | null) => void
   selectPosition: (position: BoardPosition | null) => void
   clearError: () => void
 }

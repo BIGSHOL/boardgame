@@ -185,6 +185,14 @@ async def perform_action(
                 payload.tile_id,
                 payload.position.model_dump(),
             )
+        elif request.action_type == ActionType.SELECT_BLUEPRINT:
+            payload = request.payload
+            result = await GameService.select_blueprint(
+                db,
+                game,
+                player["id"],
+                payload.blueprint_id,
+            )
         elif request.action_type == ActionType.END_TURN:
             result = await GameService.end_turn(db, game, player["id"])
         else:
@@ -287,6 +295,27 @@ async def get_valid_actions(
             "available_slots": _get_available_worker_slots(game, "official"),
         })
 
+    # Blueprint selection (if player has dealt blueprints to select from)
+    dealt_blueprints = player.get("dealt_blueprints", [])
+    if dealt_blueprints:
+        from app.services.blueprint_service import BlueprintService
+        blueprint_options = []
+        for bp_id in dealt_blueprints:
+            bp = BlueprintService.get_blueprint(bp_id)
+            if bp:
+                blueprint_options.append({
+                    "blueprint_id": bp_id,
+                    "name_ko": bp.name_ko,
+                    "description_ko": bp.description_ko,
+                    "bonus_points": bp.bonus_points,
+                    "category": bp.category.value,
+                })
+        if blueprint_options:
+            valid_actions.append({
+                "action_type": "select_blueprint",
+                "available_blueprints": blueprint_options,
+            })
+
     # End turn is always valid
     valid_actions.append({"action_type": "end_turn"})
 
@@ -342,6 +371,62 @@ def _get_available_worker_slots(game: Game, worker_type: str) -> list[dict]:
     return available_slots
 
 
+@router.get("/{game_id}/blueprints")
+async def get_player_blueprints(
+    game_id: int,
+    db: AsyncSession = Depends(get_db),
+    authorization: str | None = Header(None),
+):
+    """Get player's blueprint cards (dealt and selected)."""
+    user = await get_current_user(db, authorization)
+
+    game = await GameService.get_game(db, game_id)
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+    # Find player in game
+    player = None
+    for p in game.players:
+        if p["user_id"] == user.id:
+            player = p
+            break
+
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not in this game",
+        )
+
+    from app.services.blueprint_service import BlueprintService
+
+    # Get dealt blueprints (not yet selected)
+    dealt = []
+    for bp_id in player.get("dealt_blueprints", []):
+        bp = BlueprintService.get_blueprint(bp_id)
+        if bp:
+            dealt.append(bp.to_dict())
+
+    # Get selected blueprints
+    selected = []
+    for bp_id in player.get("blueprints", []):
+        bp = BlueprintService.get_blueprint(bp_id)
+        if bp:
+            bp_dict = bp.to_dict()
+            # Calculate current progress for this blueprint
+            current_score = BlueprintService.evaluate_blueprint(bp_id, game.board, player)
+            bp_dict["current_score"] = current_score
+            bp_dict["is_completed"] = current_score > 0
+            selected.append(bp_dict)
+
+    return {
+        "dealt_blueprints": dealt,
+        "selected_blueprints": selected,
+    }
+
+
 @router.get("/{game_id}/result")
 async def get_game_result(
     game_id: int,
@@ -364,39 +449,28 @@ async def get_game_result(
             detail="Game is not finished",
         )
 
-    # Calculate final scores
-    players = game.players
+    # Calculate final scores using GameService
+    final_scores = GameService.calculate_final_scores(game)
+
+    # Format response
     rankings = []
-
-    for player in players:
-        from app.services.resource_service import Resources, ResourceService
-
-        resources = Resources.from_dict(player["resources"])
-        resource_score = ResourceService.calculate_resource_score(resources)
-
-        score_breakdown = {
-            "building_points": player.get("score", 0),
-            "fengshui_bonus": 0,
-            "adjacency_bonus": 0,
-            "blueprint_bonus": 0,
-            "remaining_resources": resource_score,
-            "total": player.get("score", 0) + resource_score,
-        }
-
+    for score_data in final_scores:
         rankings.append({
-            "player_id": player["id"],
-            "username": player["username"],
-            "score_breakdown": score_breakdown,
+            "player_id": score_data["player_id"],
+            "username": score_data["username"],
+            "rank": score_data["rank"],
+            "score_breakdown": {
+                "building_points": score_data["base_score"],
+                "fengshui_bonus": 0,  # Already included in base_score
+                "adjacency_bonus": 0,  # Already included in base_score
+                "blueprint_bonus": score_data["blueprint_score"],
+                "worker_score": score_data["worker_score"],
+                "remaining_resources": score_data["resource_penalty"],
+                "total": score_data["total_score"],
+            },
         })
 
-    # Sort by total score
-    rankings.sort(key=lambda x: x["score_breakdown"]["total"], reverse=True)
-
-    # Add ranks
-    for i, ranking in enumerate(rankings):
-        ranking["rank"] = i + 1
-
-    winner = rankings[0] if rankings else None
+    winner = final_scores[0] if final_scores else None
 
     return {
         "game_id": game.id,

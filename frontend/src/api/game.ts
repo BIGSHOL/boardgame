@@ -5,6 +5,7 @@ import type {
   GameActionResponse,
   ValidActionsResponse,
   GameResultResponse,
+  PlayerBlueprintsResponse,
 } from '../types/game'
 
 export const gameApi = {
@@ -54,6 +55,16 @@ export const gameApi = {
   getGameResult: async (gameId: number): Promise<GameResultResponse> => {
     const response = await apiClient.get<GameResultResponse>(
       `/games/${gameId}/result`
+    )
+    return response.data
+  },
+
+  /**
+   * Get player's blueprints (dealt and selected)
+   */
+  getPlayerBlueprints: async (gameId: number): Promise<PlayerBlueprintsResponse> => {
+    const response = await apiClient.get<PlayerBlueprintsResponse>(
+      `/games/${gameId}/blueprints`
     )
     return response.data
   },

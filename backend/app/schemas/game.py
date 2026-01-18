@@ -51,7 +51,7 @@ class ActionType(str, Enum):
     PLACE_WORKER = "place_worker"
     RECALL_WORKER = "recall_worker"
     PLACE_TILE = "place_tile"
-    DRAW_BLUEPRINT = "draw_blueprint"
+    SELECT_BLUEPRINT = "select_blueprint"
     END_TURN = "end_turn"
     PASS = "pass"
 
@@ -138,7 +138,8 @@ class GamePlayer(PlayerBase):
     """게임 내 플레이어 상태"""
     resources: Resources = Field(default_factory=Resources)
     workers: PlayerWorkers
-    blueprints: list[str] = []
+    dealt_blueprints: list[str] = []  # 선택 전 배분된 청사진
+    blueprints: list[str] = []  # 선택한 청사진
     score: int = 0
     placed_tiles: list[str] = []
 
@@ -170,9 +171,9 @@ class PlaceTilePayload(BaseModel):
     position: BoardPosition
 
 
-class DrawBlueprintPayload(BaseModel):
-    """청사진 드로우 페이로드"""
-    type: Literal["draw_blueprint"] = "draw_blueprint"
+class SelectBlueprintPayload(BaseModel):
+    """청사진 선택 페이로드"""
+    type: Literal["select_blueprint"] = "select_blueprint"
     blueprint_id: str
 
 
@@ -190,7 +191,7 @@ ActionPayload = (
     PlaceWorkerPayload
     | RecallWorkerPayload
     | PlaceTilePayload
-    | DrawBlueprintPayload
+    | SelectBlueprintPayload
     | EndTurnPayload
     | PassPayload
 )

@@ -14,6 +14,7 @@ from app.models.lobby import Lobby, LobbyPlayer
 from app.services.resource_service import ResourceService, Resources, ResourceType
 from app.services.worker_service import WorkerService, PlayerWorkers, WorkerState
 from app.services.tile_service import TileService
+from app.services.blueprint_service import BlueprintService
 
 
 class GameService:
@@ -102,11 +103,15 @@ class GameService:
         # Create initial board
         board = GameService.create_initial_board()
 
+        # Deal blueprint cards to players
+        num_players = len(lobby.players)
+        blueprint_hands = BlueprintService.deal_blueprints(num_players, cards_per_player=3)
+
         # Create player states
         players = []
         turn_order_list = []
 
-        for lobby_player in sorted(lobby.players, key=lambda p: p.turn_order):
+        for idx, lobby_player in enumerate(sorted(lobby.players, key=lambda p: p.turn_order)):
             player_state = GameService.create_initial_player(
                 player_id=lobby_player.id,
                 user_id=lobby_player.user_id,
@@ -115,6 +120,9 @@ class GameService:
                 turn_order=lobby_player.turn_order,
                 is_host=lobby_player.user_id == lobby.host_id,
             )
+            # Assign dealt blueprint cards
+            player_state["dealt_blueprints"] = blueprint_hands[idx]
+            player_state["blueprints"] = []  # Selected blueprints will be stored here
             players.append(player_state)
             turn_order_list.append(lobby_player.id)
 
@@ -541,6 +549,113 @@ class GameService:
             "gate": None,  # Gate gives special abilities
         }
         return resource_map.get(tile_type)
+
+    @staticmethod
+    async def select_blueprint(
+        db: AsyncSession,
+        game: Game,
+        player_id: int,
+        blueprint_id: str,
+    ) -> dict:
+        """
+        Select a blueprint card from dealt cards.
+
+        Returns:
+            Result with selected blueprint and remaining cards
+        """
+        player = GameService.get_player_state(game, player_id)
+        if not player:
+            raise ValueError("Player not found")
+
+        dealt = player.get("dealt_blueprints", [])
+        if not dealt:
+            raise ValueError("No blueprints to select from")
+
+        if blueprint_id not in dealt:
+            raise ValueError("Blueprint not in dealt cards")
+
+        # Select the blueprint
+        selected, remaining = BlueprintService.select_blueprint(dealt, blueprint_id)
+
+        # Update player state
+        blueprints = player.get("blueprints", [])
+        blueprints.append(selected)
+
+        GameService.update_player_state(game, player_id, {
+            "blueprints": blueprints,
+            "dealt_blueprints": remaining,
+        })
+
+        # Record action
+        action = await GameService.record_action(
+            db, game, player_id, "select_blueprint",
+            {"blueprint_id": blueprint_id}
+        )
+
+        await db.flush()
+
+        return {
+            "action_id": action.id,
+            "selected_blueprint": selected,
+            "remaining_blueprints": remaining,
+        }
+
+    @staticmethod
+    def calculate_final_scores(game: Game) -> list[dict]:
+        """
+        Calculate final scores including blueprint bonuses.
+
+        Returns:
+            List of player score breakdowns
+        """
+        board = game.board
+        results = []
+
+        for player in game.players:
+            base_score = player.get("score", 0)
+
+            # Calculate blueprint scores
+            blueprint_breakdown = BlueprintService.get_blueprint_score_breakdown(
+                board, player
+            )
+            blueprint_total = blueprint_breakdown.get("total", 0)
+
+            # Calculate worker scores (each placed worker gives 1 point)
+            worker_score = 0
+            for row in board:
+                for cell in row:
+                    if cell.get("tile"):
+                        for pw in cell["tile"].get("placed_workers", []):
+                            if pw["player_id"] == player["id"]:
+                                worker_score += 1
+
+            # Calculate remaining resource penalty (-1 per 3 resources)
+            resources = player.get("resources", {})
+            total_resources = sum(resources.values())
+            resource_penalty = -(total_resources // 3)
+
+            total_score = base_score + blueprint_total + worker_score + resource_penalty
+
+            results.append({
+                "player_id": player["id"],
+                "user_id": player["user_id"],
+                "username": player.get("username", "Unknown"),
+                "base_score": base_score,
+                "blueprint_score": blueprint_total,
+                "blueprint_breakdown": blueprint_breakdown,
+                "worker_score": worker_score,
+                "resource_penalty": resource_penalty,
+                "total_score": total_score,
+            })
+
+        # Sort by total score descending
+        results.sort(key=lambda x: x["total_score"], reverse=True)
+
+        # Add rankings
+        for i, result in enumerate(results):
+            result["rank"] = i + 1
+
+        return results
 
     @staticmethod
     def to_game_state_response(game: Game) -> dict:

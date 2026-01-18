@@ -14,7 +14,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   validActions: [],
   selectedWorker: null,
   selectedTile: null,
+  selectedBlueprint: null,
   selectedPosition: null,
+  playerBlueprints: null,
   isLoading: false,
   error: null,
 
@@ -40,6 +42,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
   },
 
+  fetchPlayerBlueprints: async (gameId: number) => {
+    try {
+      const blueprints = await gameApi.getPlayerBlueprints(gameId)
+      set({ playerBlueprints: blueprints })
+    } catch (error) {
+      console.error('Failed to fetch player blueprints:', error)
+    }
+  },
+
   performAction: async (gameId: number, action: GameActionRequest) => {
     set({ isLoading: true, error: null })
     try {
@@ -48,11 +59,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         gameState: response.new_state,
         selectedWorker: null,
         selectedTile: null,
+        selectedBlueprint: null,
         selectedPosition: null,
         isLoading: false,
       })
-      // Refresh valid actions after performing action
+      // Refresh valid actions and blueprints after performing action
       get().fetchValidActions(gameId)
+      get().fetchPlayerBlueprints(gameId)
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to perform action',
@@ -63,11 +76,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   selectWorker: (workerType: WorkerType | null) => {
-    set({ selectedWorker: workerType, selectedTile: null, selectedPosition: null })
+    set({ selectedWorker: workerType, selectedTile: null, selectedBlueprint: null, selectedPosition: null })
   },
 
   selectTile: (tileId: string | null) => {
-    set({ selectedTile: tileId, selectedWorker: null, selectedPosition: null })
+    set({ selectedTile: tileId, selectedWorker: null, selectedBlueprint: null, selectedPosition: null })
+  },
+
+  selectBlueprint: (blueprintId: string | null) => {
+    set({ selectedBlueprint: blueprintId, selectedWorker: null, selectedTile: null, selectedPosition: null })
   },
 
   selectPosition: (position: BoardPosition | null) => {
