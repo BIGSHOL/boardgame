@@ -71,6 +71,7 @@ class LobbyResponse(BaseModel):
     invite_code: str
     status: LobbyStatus
     max_players: int
+    game_id: int | None = None
     players: list[LobbyPlayer]
     created_at: datetime
 

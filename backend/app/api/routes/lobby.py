@@ -18,6 +18,7 @@ from app.schemas.lobby import (
     ReadyRequest,
     StartGameResponse,
 )
+from app.services.game_service import GameService
 
 router = APIRouter()
 
@@ -358,12 +359,23 @@ async def start_game(
             detail="Not all players are ready",
         )
 
-    # Update lobby status (game creation will be handled in Phase 2)
+    # Update lobby status
     lobby.status = LobbyStatus.STARTED
     await db.flush()
 
-    # For now, return a placeholder game_id
-    return StartGameResponse(game_id=1)
+    # Check if game already exists for this lobby
+    existing_game = await GameService.get_game_by_lobby(db, lobby_id)
+    if existing_game:
+        return StartGameResponse(game_id=existing_game.id)
+
+    # Create the actual game
+    game = await GameService.create_game(db, lobby)
+
+    # Link game to lobby
+    lobby.game_id = game.id
+    await db.flush()
+
+    return StartGameResponse(game_id=game.id)
 
 
 def _to_player_response(player: LobbyPlayer) -> LobbyPlayerResponse:
@@ -394,6 +406,7 @@ def _to_lobby_response(lobby: Lobby, current_user_id: int | None = None) -> Lobb
         invite_code=lobby.invite_code,
         status=lobby.status.value,
         max_players=lobby.max_players,
+        game_id=lobby.game_id,
         players=players,
         created_at=lobby.created_at.isoformat(),
     )

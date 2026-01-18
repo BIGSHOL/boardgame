@@ -124,7 +124,7 @@ class GameService:
             player_state["dealt_blueprints"] = blueprint_hands[idx]
             player_state["blueprints"] = []  # Selected blueprints will be stored here
             players.append(player_state)
-            turn_order_list.append(lobby_player.id)
+            turn_order_list.append(lobby_player.user_id)  # Use user_id, not lobby_player.id
 
         # Generate tile pool
         available_tiles = GameService.generate_tile_pool()

@@ -19,6 +19,7 @@ interface Lobby {
   invite_code: string;
   status: string;
   max_players: number;
+  game_id: number | null;
   players: Player[];
   created_at: string;
 }
@@ -56,8 +57,8 @@ export default function LobbyRoom() {
       setLobby(data);
 
       // If game started, redirect to game
-      if (data.status === 'started') {
-        navigate('/game/1'); // TODO: Use actual game_id
+      if (data.status === 'started' && data.game_id) {
+        navigate(`/game/${data.game_id}`);
       }
     } catch (err) {
       setError('로비 정보를 불러오는데 실패했습니다.');

@@ -12,10 +12,13 @@ export const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const tokens = localStorage.getItem('tokens')
-    if (tokens) {
-      const { access_token } = JSON.parse(tokens)
-      config.headers.Authorization = `Bearer ${access_token}`
+    // Zustand persist stores data under 'auth-storage' key
+    const authStorage = localStorage.getItem('auth-storage')
+    if (authStorage) {
+      const { state } = JSON.parse(authStorage)
+      if (state?.tokens?.access_token) {
+        config.headers.Authorization = `Bearer ${state.tokens.access_token}`
+      }
     }
     return config
   },
@@ -31,21 +34,27 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config
     if (error.response?.status === 401 && originalRequest) {
       // Token expired, try to refresh
-      const tokens = localStorage.getItem('tokens')
-      if (tokens) {
+      const authStorage = localStorage.getItem('auth-storage')
+      if (authStorage) {
         try {
-          const { refresh_token } = JSON.parse(tokens)
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refresh_token,
-          })
-          const newTokens = response.data
-          localStorage.setItem('tokens', JSON.stringify(newTokens))
-          originalRequest.headers.Authorization = `Bearer ${newTokens.access_token}`
-          return apiClient(originalRequest)
+          const { state } = JSON.parse(authStorage)
+          if (state?.tokens?.refresh_token) {
+            const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+              refresh_token: state.tokens.refresh_token,
+            })
+            const newTokens = response.data
+            // Update Zustand persist storage
+            const updatedStorage = {
+              state: { ...state, tokens: newTokens },
+              version: 0,
+            }
+            localStorage.setItem('auth-storage', JSON.stringify(updatedStorage))
+            originalRequest.headers.Authorization = `Bearer ${newTokens.access_token}`
+            return apiClient(originalRequest)
+          }
         } catch {
           // Refresh failed, logout
-          localStorage.removeItem('tokens')
-          localStorage.removeItem('user')
+          localStorage.removeItem('auth-storage')
           window.location.href = '/login'
         }
       }

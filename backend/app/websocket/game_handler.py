@@ -10,8 +10,9 @@ import json
 import logging
 
 from app.core.database import get_db
-from app.core.security import decode_access_token
-from app.models.game import Game, GamePlayer
+from app.core.security import decode_token
+from app.models.game import Game
+from app.models.lobby import LobbyPlayer
 from app.models.user import User
 from app.websocket.game_manager import game_manager, GameMessage, MessageType
 
@@ -35,7 +36,7 @@ async def get_current_user_ws(
         User if authenticated, None otherwise
     """
     try:
-        payload = decode_access_token(token)
+        payload = decode_token(token)
         if not payload:
             return None
 
@@ -54,7 +55,7 @@ async def validate_game_player(
     game_id: int,
     user_id: int,
     db: AsyncSession
-) -> Optional[GamePlayer]:
+) -> Optional[LobbyPlayer]:
     """
     Validate that user is a player in the game.
 
@@ -64,14 +65,20 @@ async def validate_game_player(
         db: Database session
 
     Returns:
-        GamePlayer if valid, None otherwise
+        LobbyPlayer if valid, None otherwise
     """
     from sqlalchemy import select
 
+    # First get the game to find its lobby_id
+    game = await db.get(Game, game_id)
+    if not game:
+        return None
+
+    # Find the player in the lobby
     result = await db.execute(
-        select(GamePlayer).where(
-            GamePlayer.game_id == game_id,
-            GamePlayer.user_id == user_id
+        select(LobbyPlayer).where(
+            LobbyPlayer.lobby_id == game.lobby_id,
+            LobbyPlayer.user_id == user_id
         )
     )
     return result.scalar_one_or_none()

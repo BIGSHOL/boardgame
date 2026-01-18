@@ -70,9 +70,10 @@ async def create_game_from_lobby(
     user = await get_current_user(db, authorization)
 
     # Get lobby with players
+    from app.models.lobby import LobbyPlayer
     result = await db.execute(
         select(Lobby)
-        .options(selectinload(Lobby.players).selectinload(lambda p: p.user))
+        .options(selectinload(Lobby.players).selectinload(LobbyPlayer.user))
         .where(Lobby.id == lobby_id)
     )
     lobby = result.scalar_one_or_none()
