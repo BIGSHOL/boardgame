@@ -6,6 +6,7 @@ import Register from './routes/Register'
 import Profile from './routes/Profile'
 import LobbyList from './routes/LobbyList'
 import LobbyRoom from './routes/LobbyRoom'
+import Game from './routes/Game'
 import NotFound from './routes/NotFound'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/profile" element={isAuthenticated ? <Profile /> : <Login />} />
         <Route path="/lobbies" element={<LobbyList />} />
         <Route path="/lobby/:id" element={<LobbyRoom />} />
+        <Route path="/game/:id" element={<Game />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
