@@ -12,7 +12,21 @@
       "Bash(git init:*)",
       "Bash(npm run test:*)",
       "Bash(npm install)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(pip3 install:*)",
+      "Bash(/c/Users/user/AppData/Local/Microsoft/WindowsApps/python -m pip install:*)",
+      "Bash(git merge:*)",
+      "Bash(git worktree:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git branch:*)",
+      "Bash(set PYTHONPATH=%CD%)",
+      "Bash(pytest:*)"
+    ],
+    "additionalDirectories": [
+      "f:\\boardgame\\name1-phase2-game\\backend\\app\\services",
+      "f:\\boardgame\\name1-phase2-game\\backend\\app\\api\\routes",
+      "f:\\boardgame\\name1-phase2-game\\backend\\app\\schemas"
     ]
   }
 }

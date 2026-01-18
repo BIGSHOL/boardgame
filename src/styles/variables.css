@@ -1,0 +1,13 @@
+/* Hanyang Color Palette */
+:root {
+  /* Architecture - Walls, Tiles, Stone */
+  --color-gray: #373d41;
+  /* Scholars - Officials, Night, Ink */
+  --color-navy: #081429;
+  /* Wealth - Brassware, Coins, Crops */
+  --color-yellow: #fdb813;
+  
+  /* Text */
+  --color-text-light: #ffffff;
+  --color-text-dark: #333333;
+}

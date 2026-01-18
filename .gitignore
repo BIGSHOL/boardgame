@@ -1,50 +1,5 @@
-# Dependencies
-node_modules/
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-venv/
-ENV/
-env/
-.venv/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-!.env.example
-
 # Logs
-logs/
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -52,51 +7,35 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Testing
-coverage/
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
+node_modules
+dist
+dist-ssr
+*.local
 
-# Build outputs
-dist/
-build/
-*.egg-info/
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Frontend specific
-frontend/node_modules/
-frontend/dist/
-frontend/.turbo/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
 
-# Backend specific
-backend/*.db
-backend/.pytest_cache/
+# Environment
+.env
+.env.local
+.env.*.local
 
-# Database
-*.db
-*.sqlite3
-
-# Secrets
-*.pem
-*.key
-credentials.json
-
-# Docker
-.docker/
-
-# Misc
-*.bak
-*.tmp
-*.temp
-
-# Git worktrees (generated during development)
-worktree/
+# Windows
+nul
