@@ -205,6 +205,7 @@ export interface ScoreBreakdown {
   fengshui_bonus: number
   adjacency_bonus: number
   blueprint_bonus: number
+  worker_score?: number
   remaining_resources: number
   total: number
 }

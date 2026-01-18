@@ -48,6 +48,13 @@ export function Game() {
     }
   }, [gameId, fetchGameState, fetchValidActions, fetchPlayerBlueprints])
 
+  // Redirect to result page when game is finished
+  useEffect(() => {
+    if (gameState?.status === 'finished') {
+      navigate(`/game/${gameId}/result`)
+    }
+  }, [gameState?.status, gameId, navigate])
+
   // Find current player
   const currentPlayer = gameState?.players.find((p) => p.user_id === user?.id)
   const isMyTurn = currentPlayer?.id === gameState?.current_turn_player_id
