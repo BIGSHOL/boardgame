@@ -51,12 +51,12 @@ export default function Home() {
 
           {isAuthenticated ? (
             <div className="flex gap-4 justify-center">
-              <button className="btn-primary text-lg px-8 py-3">
+              <Link to="/lobbies" className="btn-primary text-lg px-8 py-3 inline-block">
                 게임 시작
-              </button>
-              <button className="btn-secondary text-lg px-8 py-3">
-                로비 참여
-              </button>
+              </Link>
+              <Link to="/lobbies" className="btn-secondary text-lg px-8 py-3 inline-block">
+                로비 목록
+              </Link>
             </div>
           ) : (
             <Link to="/register" className="btn-primary text-lg px-8 py-3 inline-block">
