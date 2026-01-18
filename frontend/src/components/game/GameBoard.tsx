@@ -6,6 +6,8 @@ interface GameBoardProps {
   selectedPosition: BoardPosition | null
   validActions: ValidAction[]
   selectedWorkerType: string | null
+  selectedTileId: string | null
+  validTilePositions: BoardPosition[]
   onSelectCell: (position: BoardPosition) => void
 }
 
@@ -14,10 +16,12 @@ export function GameBoard({
   selectedPosition,
   validActions,
   selectedWorkerType,
+  selectedTileId,
+  validTilePositions,
   onSelectCell,
 }: GameBoardProps) {
   // Get valid positions for the selected worker type
-  const validPositions = new Set<string>()
+  const validWorkerPositions = new Set<string>()
 
   if (selectedWorkerType) {
     const workerAction = validActions.find(
@@ -26,10 +30,25 @@ export function GameBoard({
     if (workerAction?.available_slots) {
       workerAction.available_slots.forEach((slot) => {
         if (slot.position) {
-          validPositions.add(`${slot.position.row},${slot.position.col}`)
+          validWorkerPositions.add(`${slot.position.row},${slot.position.col}`)
         }
       })
     }
+  }
+
+  // Get valid positions for tile placement
+  const validTilePositionSet = new Set<string>()
+  if (selectedTileId && validTilePositions) {
+    validTilePositions.forEach((pos) => {
+      validTilePositionSet.add(`${pos.row},${pos.col}`)
+    })
+  }
+
+  // Combined valid positions
+  const getValidTarget = (posKey: string): boolean => {
+    if (selectedWorkerType) return validWorkerPositions.has(posKey)
+    if (selectedTileId) return validTilePositionSet.has(posKey)
+    return false
   }
 
   return (
@@ -40,7 +59,7 @@ export function GameBoard({
             const posKey = `${rowIdx},${colIdx}`
             const isSelected =
               selectedPosition?.row === rowIdx && selectedPosition?.col === colIdx
-            const isValidTarget = validPositions.has(posKey)
+            const isValidTarget = getValidTarget(posKey)
 
             return (
               <BoardCell

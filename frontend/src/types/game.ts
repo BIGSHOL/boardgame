@@ -102,11 +102,40 @@ export interface RecallWorkerPayload {
   slot_index: number
 }
 
+export interface PlaceTilePayload {
+  type: 'place_tile'
+  tile_id: string
+  position: BoardPosition
+}
+
 export interface EndTurnPayload {
   type: 'end_turn'
 }
 
-export type ActionPayload = PlaceWorkerPayload | RecallWorkerPayload | EndTurnPayload
+export type ActionPayload = PlaceWorkerPayload | RecallWorkerPayload | PlaceTilePayload | EndTurnPayload
+
+// Tile Types
+export type TileCategory = 'palace' | 'government' | 'religious' | 'commercial' | 'residential' | 'gate'
+
+export interface TileCost {
+  wood: number
+  stone: number
+  tile: number
+  ink: number
+}
+
+export interface TileInfo {
+  tile_id: string
+  name_ko: string
+  cost: TileCost
+  base_points: number
+}
+
+export interface TilePlacementAction {
+  action_type: 'place_tile'
+  available_tiles: TileInfo[]
+  valid_positions: BoardPosition[]
+}
 
 // API Requests
 export interface GameActionRequest {
@@ -167,6 +196,7 @@ export interface GameStoreState {
   gameState: GameState | null
   validActions: ValidAction[]
   selectedWorker: WorkerType | null
+  selectedTile: string | null
   selectedPosition: BoardPosition | null
   isLoading: boolean
   error: string | null
@@ -176,6 +206,7 @@ export interface GameStoreState {
   fetchValidActions: (gameId: number) => Promise<void>
   performAction: (gameId: number, action: GameActionRequest) => Promise<void>
   selectWorker: (workerType: WorkerType | null) => void
+  selectTile: (tileId: string | null) => void
   selectPosition: (position: BoardPosition | null) => void
   clearError: () => void
 }

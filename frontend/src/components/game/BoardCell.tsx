@@ -21,7 +21,8 @@ const PLAYER_COLORS: Record<number, string> = {
 }
 
 export function BoardCell({ cell, isSelected, isValidTarget, onSelect }: BoardCellProps) {
-  const isClickable = cell.terrain === 'normal' && cell.tile !== null
+  // Clickable if: (1) has tile (for worker placement), or (2) is valid target (for tile placement)
+  const isClickable = (cell.terrain === 'normal' && cell.tile !== null) || isValidTarget
   const hasWorkers = cell.tile?.placed_workers && cell.tile.placed_workers.length > 0
 
   return (
@@ -34,7 +35,8 @@ export function BoardCell({ cell, isSelected, isValidTarget, onSelect }: BoardCe
         ${TERRAIN_STYLES[cell.terrain]}
         ${isSelected ? 'ring-2 ring-hanyang-gold ring-offset-2' : ''}
         ${isValidTarget ? 'ring-2 ring-green-500 animate-pulse' : ''}
-        ${!isClickable ? 'cursor-not-allowed' : 'cursor-pointer'}
+        ${!isClickable && cell.terrain === 'normal' ? 'opacity-70' : ''}
+        ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}
       `}
       onClick={() => isClickable && onSelect(cell.position)}
       disabled={!isClickable}

@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
-import { GameBoard, PlayerPanel } from '../components/game'
-import type { WorkerType, BoardPosition } from '../types/game'
+import { GameBoard, PlayerPanel, TileSelector } from '../components/game'
+import type { WorkerType, BoardPosition, TileInfo } from '../types/game'
 
 export function Game() {
   const { id } = useParams<{ id: string }>()
@@ -13,6 +13,7 @@ export function Game() {
     gameState,
     validActions,
     selectedWorker,
+    selectedTile,
     selectedPosition,
     isLoading,
     error,
@@ -20,6 +21,7 @@ export function Game() {
     fetchValidActions,
     performAction,
     selectWorker,
+    selectTile,
     selectPosition,
     clearError,
   } = useGameStore()
@@ -54,30 +56,63 @@ export function Game() {
     }
   }
 
-  // Handle cell selection for worker placement
+  // Handle tile selection
+  const handleSelectTile = (tileId: string | null) => {
+    selectTile(tileId)
+  }
+
+  // Handle cell selection for worker or tile placement
   const handleSelectCell = (position: BoardPosition) => {
-    if (!gameId || !selectedWorker || !isMyTurn) return
+    if (!gameId || !isMyTurn) return
 
-    // Find valid slot for this position
-    const workerAction = validActions.find(
-      (a) => a.action_type === 'place_worker' && a.worker_type === selectedWorker
-    )
-    const validSlot = workerAction?.available_slots?.find(
-      (s) => s.position?.row === position.row && s.position?.col === position.col
-    )
+    // Handle tile placement
+    if (selectedTile) {
+      const tileAction = validActions.find((a) => a.action_type === 'place_tile') as any
+      if (tileAction?.valid_positions) {
+        const isValidPosition = tileAction.valid_positions.some(
+          (p: BoardPosition) => p.row === position.row && p.col === position.col
+        )
+        if (isValidPosition) {
+          performAction(gameId, {
+            action_type: 'place_tile',
+            payload: {
+              type: 'place_tile',
+              tile_id: selectedTile,
+              position: position,
+            },
+          })
+        }
+      }
+      return
+    }
 
-    if (validSlot) {
-      performAction(gameId, {
-        action_type: 'place_worker',
-        payload: {
-          type: 'place_worker',
-          worker_type: selectedWorker,
-          target_position: position,
-          slot_index: validSlot.slot_index ?? 0,
-        },
-      })
+    // Handle worker placement
+    if (selectedWorker) {
+      const workerAction = validActions.find(
+        (a) => a.action_type === 'place_worker' && a.worker_type === selectedWorker
+      )
+      const validSlot = workerAction?.available_slots?.find(
+        (s) => s.position?.row === position.row && s.position?.col === position.col
+      )
+
+      if (validSlot) {
+        performAction(gameId, {
+          action_type: 'place_worker',
+          payload: {
+            type: 'place_worker',
+            worker_type: selectedWorker,
+            target_position: position,
+            slot_index: validSlot.slot_index ?? 0,
+          },
+        })
+      }
     }
   }
+
+  // Get available tiles from valid actions
+  const tileAction = validActions.find((a) => a.action_type === 'place_tile') as any
+  const availableTiles: TileInfo[] = tileAction?.available_tiles || []
+  const validTilePositions: BoardPosition[] = tileAction?.valid_positions || []
 
   // Handle end turn
   const handleEndTurn = () => {
@@ -169,17 +204,22 @@ export function Game() {
             selectedPosition={selectedPosition}
             validActions={validActions}
             selectedWorkerType={selectedWorker}
+            selectedTileId={selectedTile}
+            validTilePositions={validTilePositions}
             onSelectCell={handleSelectCell}
           />
 
           {/* Action buttons */}
           {isMyTurn && (
             <div className="mt-4 flex justify-center gap-4">
-              {selectedWorker && (
+              {(selectedWorker || selectedTile) && (
                 <button
                   type="button"
                   className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                  onClick={() => selectWorker(null)}
+                  onClick={() => {
+                    selectWorker(null)
+                    selectTile(null)
+                  }}
                 >
                   선택 취소
                 </button>
@@ -202,46 +242,32 @@ export function Game() {
           )}
         </main>
 
-        {/* Right sidebar - Available tiles */}
+        {/* Right sidebar - Tile Selection */}
         <aside className="col-span-3">
-          <h2 className="text-lg font-bold text-hanyang-brown mb-2">사용 가능한 타일</h2>
-          <div className="space-y-2">
-            {gameState.available_tiles.map((tileId, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-hanyang-paper rounded border border-hanyang-brown/20"
-              >
-                <span className="text-hanyang-brown">{formatTileName(tileId)}</span>
-              </div>
-            ))}
-          </div>
+          {isMyTurn && availableTiles.length > 0 && currentPlayer && (
+            <TileSelector
+              availableTiles={availableTiles}
+              playerResources={currentPlayer.resources}
+              selectedTileId={selectedTile}
+              onSelectTile={handleSelectTile}
+              disabled={isLoading}
+            />
+          )}
 
           {/* Game info */}
           <div className="mt-4 p-4 bg-hanyang-paper rounded border border-hanyang-brown/20">
             <h3 className="font-bold text-hanyang-brown mb-2">게임 정보</h3>
             <ul className="text-sm text-hanyang-brown/70 space-y-1">
               <li>게임 ID: {gameState.id}</li>
-              <li>총 라운드: {gameState.total_rounds}</li>
+              <li>라운드: {gameState.current_round}/{gameState.total_rounds}</li>
               <li>플레이어 수: {gameState.players.length}명</li>
+              <li>남은 타일: {gameState.available_tiles.length}장</li>
             </ul>
           </div>
         </aside>
       </div>
     </div>
   )
-}
-
-function formatTileName(tileId: string): string {
-  const [type, num] = tileId.split('_')
-  const typeNames: Record<string, string> = {
-    palace: '궁궐',
-    government: '관아',
-    religious: '사찰',
-    commercial: '시전',
-    residential: '민가',
-    gate: '성문',
-  }
-  return `${typeNames[type] || type} ${num}`
 }
 
 export default Game

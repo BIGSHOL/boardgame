@@ -13,6 +13,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   gameState: null,
   validActions: [],
   selectedWorker: null,
+  selectedTile: null,
   selectedPosition: null,
   isLoading: false,
   error: null,
@@ -46,6 +47,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set({
         gameState: response.new_state,
         selectedWorker: null,
+        selectedTile: null,
         selectedPosition: null,
         isLoading: false,
       })
@@ -61,7 +63,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   selectWorker: (workerType: WorkerType | null) => {
-    set({ selectedWorker: workerType, selectedPosition: null })
+    set({ selectedWorker: workerType, selectedTile: null, selectedPosition: null })
+  },
+
+  selectTile: (tileId: string | null) => {
+    set({ selectedTile: tileId, selectedWorker: null, selectedPosition: null })
   },
 
   selectPosition: (position: BoardPosition | null) => {
