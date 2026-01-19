@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, game, health, lobby
+from app.api.routes import auth, game, health, lobby, solo
 from app.core.config import settings
 from app.websocket import game_ws_router
 
@@ -40,6 +40,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(lobby.router, prefix="/api/v1/lobbies", tags=["Lobby"])
 app.include_router(game.router, prefix="/api/v1/games", tags=["Game"])
+app.include_router(solo.router, prefix="/api/v1/solo", tags=["Solo Play"])
 
 # WebSocket router
 app.include_router(game_ws_router, tags=["WebSocket"])

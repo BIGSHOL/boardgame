@@ -168,12 +168,13 @@ async def perform_action(
 
     # Process action based on type
     try:
+        # NOTE: GameService methods check current_turn_player_id which stores user_id
         if request.action_type == ActionType.PLACE_WORKER:
             payload = request.payload
             result = await GameService.place_worker(
                 db,
                 game,
-                player["id"],
+                player["user_id"],
                 payload.worker_type.value,
                 payload.target_position.model_dump(),
                 payload.slot_index,
@@ -183,7 +184,7 @@ async def perform_action(
             result = await GameService.place_tile(
                 db,
                 game,
-                player["id"],
+                player["user_id"],
                 payload.tile_id,
                 payload.position.model_dump(),
             )
@@ -192,11 +193,11 @@ async def perform_action(
             result = await GameService.select_blueprint(
                 db,
                 game,
-                player["id"],
+                player["user_id"],
                 payload.blueprint_id,
             )
         elif request.action_type == ActionType.END_TURN:
-            result = await GameService.end_turn(db, game, player["id"])
+            result = await GameService.end_turn(db, game, player["user_id"])
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -216,7 +217,7 @@ async def perform_action(
         )
 
         # If turn changed, notify new current player
-        if game.current_turn_player_id != player["id"]:
+        if game.current_turn_player_id != player["user_id"]:
             await game_manager.send_to_player(
                 game_id,
                 game.current_turn_player_id,
@@ -284,8 +285,8 @@ async def get_valid_actions(
             detail="You are not in this game",
         )
 
-    # Check if it's player's turn
-    if game.current_turn_player_id != player["id"]:
+    # Check if it's player's turn (current_turn_player_id stores user_id)
+    if game.current_turn_player_id != player["user_id"]:
         return {"valid_actions": [], "message": "Not your turn"}
 
     valid_actions = []
@@ -334,9 +335,11 @@ async def get_valid_actions(
             "available_slots": _get_available_worker_slots(game, "official"),
         })
 
-    # Blueprint selection (if player has dealt blueprints to select from)
+    # Blueprint selection - only allow if player hasn't selected a blueprint yet
+    # Rule: select 1 blueprint from 3 dealt cards at game start
     dealt_blueprints = player.get("dealt_blueprints", [])
-    if dealt_blueprints:
+    selected_blueprints = player.get("blueprints", [])
+    if dealt_blueprints and len(selected_blueprints) == 0:
         from app.services.blueprint_service import BlueprintService
         blueprint_options = []
         for bp_id in dealt_blueprints:

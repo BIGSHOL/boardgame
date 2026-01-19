@@ -169,19 +169,26 @@ class GameService:
 
     @staticmethod
     def get_player_state(game: Game, player_id: int) -> dict | None:
-        """Get player state from game."""
+        """Get player state from game by user_id.
+
+        Note: player_id here refers to user_id, not player["id"].
+        This matches how current_turn_player_id stores user_id values.
+        """
         players = game.players
         for player in players:
-            if player["id"] == player_id:
+            if player["user_id"] == player_id:
                 return player
         return None
 
     @staticmethod
     def update_player_state(game: Game, player_id: int, updates: dict) -> None:
-        """Update player state in game."""
+        """Update player state in game by user_id.
+
+        Note: player_id here refers to user_id, not player["id"].
+        """
         players = game.players
         for i, player in enumerate(players):
-            if player["id"] == player_id:
+            if player["user_id"] == player_id:
                 players[i].update(updates)
                 game.players = players
                 return
@@ -646,12 +653,13 @@ class GameService:
             blueprint_total = blueprint_breakdown.get("total", 0)
 
             # Calculate worker scores (each placed worker gives 1 point)
+            # Note: placed_workers store player_id as user_id
             worker_score = 0
             for row in board:
                 for cell in row:
                     if cell.get("tile"):
                         for pw in cell["tile"].get("placed_workers", []):
-                            if pw["player_id"] == player["id"]:
+                            if pw["player_id"] == player["user_id"]:
                                 worker_score += 1
 
             # Calculate remaining resource penalty (-1 per 3 resources)

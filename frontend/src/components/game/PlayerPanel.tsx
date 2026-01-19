@@ -60,6 +60,11 @@ export function PlayerPanel({
               방장
             </span>
           )}
+          {player.is_ai && (
+            <span className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded">
+              AI
+            </span>
+          )}
           {isCurrentPlayer && (
             <span className="px-2 py-0.5 text-xs bg-hanyang-blue text-white rounded">
               나

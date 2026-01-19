@@ -70,6 +70,8 @@ export interface GamePlayer {
   blueprints: string[]  // 선택한 청사진
   score: number
   placed_tiles: string[]
+  is_ai?: boolean  // AI 플레이어 여부
+  ai_difficulty?: string  // AI 난이도
 }
 
 // Game State

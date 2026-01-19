@@ -372,7 +372,8 @@ class BlueprintService:
             return 0
 
         condition = bp.condition
-        player_id = player["id"]
+        # Use user_id since tiles store owner_id as user_id
+        player_id = player["user_id"]
 
         # Get player's tiles on board
         player_tiles = []

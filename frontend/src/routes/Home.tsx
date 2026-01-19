@@ -50,13 +50,18 @@ export default function Home() {
           </p>
 
           {isAuthenticated ? (
-            <div className="flex gap-4 justify-center">
-              <Link to="/lobbies" className="btn-primary text-lg px-8 py-3 inline-block">
-                게임 시작
-              </Link>
-              <Link to="/lobbies" className="btn-secondary text-lg px-8 py-3 inline-block">
-                로비 목록
-              </Link>
+            <div className="flex flex-col gap-4 items-center">
+              <div className="flex gap-4 justify-center">
+                <Link to="/lobbies" className="btn-primary text-lg px-8 py-3 inline-block">
+                  멀티플레이
+                </Link>
+                <Link to="/solo" className="btn-secondary text-lg px-8 py-3 inline-block bg-hanyang-gold text-hanyang-navy hover:bg-yellow-400">
+                  솔로플레이
+                </Link>
+              </div>
+              <p className="text-sm text-hanyang-stone">
+                솔로플레이로 AI 상대와 연습하거나 멀티플레이로 다른 플레이어와 대전하세요
+              </p>
             </div>
           ) : (
             <Link to="/register" className="btn-primary text-lg px-8 py-3 inline-block">

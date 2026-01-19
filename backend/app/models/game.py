@@ -24,13 +24,14 @@ class Game(Base):
     __tablename__ = "games"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    lobby_id: Mapped[int] = mapped_column(ForeignKey("lobbies.id"), nullable=False)
+    lobby_id: Mapped[int | None] = mapped_column(ForeignKey("lobbies.id"), nullable=True)
     status: Mapped[GameStatus] = mapped_column(
         SQLEnum(GameStatus), default=GameStatus.WAITING
     )
     current_round: Mapped[int] = mapped_column(default=1)
     total_rounds: Mapped[int] = mapped_column(default=8)
-    current_turn_player_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Note: Not a ForeignKey because AI players have negative IDs
+    current_turn_player_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # JSON fields stored as Text
     turn_order_json: Mapped[str] = mapped_column(Text, default="[]")
@@ -52,7 +53,6 @@ class Game(Base):
 
     # Relationships
     lobby = relationship("Lobby", foreign_keys=[lobby_id])
-    current_turn_player = relationship("User", foreign_keys=[current_turn_player_id])
     actions: Mapped[list["GameAction"]] = relationship(
         "GameAction", back_populates="game", cascade="all, delete-orphan"
     )
@@ -115,7 +115,8 @@ class GameAction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     game_id: Mapped[int] = mapped_column(ForeignKey("games.id"), nullable=False)
-    player_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Note: Not a ForeignKey because AI players have negative IDs (e.g., -1, -2)
+    player_id: Mapped[int] = mapped_column(Integer, nullable=False)
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, default="{}")
     timestamp: Mapped[datetime] = mapped_column(
@@ -125,7 +126,7 @@ class GameAction(Base):
 
     # Relationships
     game: Mapped[Game] = relationship("Game", back_populates="actions")
-    player = relationship("User", foreign_keys=[player_id])
+    # Note: player relationship removed - AI players don't exist in users table
 
     @property
     def payload(self) -> dict:

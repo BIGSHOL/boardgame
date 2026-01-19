@@ -1,10 +1,11 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
 import { useGameWebSocket, useToast } from '../hooks'
 import { GameBoard, PlayerPanel, TileSelector, BlueprintSelector, BlueprintPanel } from '../components/game'
 import { Toast } from '../components/ui'
+import { apiClient as client } from '../api/client'
 import type { WorkerType, BoardPosition, TileInfo, BlueprintInfo } from '../types/game'
 
 export function Game() {
@@ -33,6 +34,10 @@ export function Game() {
   } = useGameStore()
 
   const gameId = id ? parseInt(id, 10) : null
+
+  // AI turn handling state
+  const [isAITurnProcessing, setIsAITurnProcessing] = useState(false)
+  const [aiTurnMessage, setAITurnMessage] = useState<string | null>(null)
 
   // Toast notifications
   const { toast, showTurnNotification, showSuccess, hideToast } = useToast()
@@ -77,9 +82,64 @@ export function Game() {
     }
   }, [gameState?.status, gameId, navigate])
 
-  // Find current player
+  // Find current player (me)
   const currentPlayer = gameState?.players.find((p) => p.user_id === user?.id)
-  const isMyTurn = currentPlayer?.id === gameState?.current_turn_player_id
+  // NOTE: current_turn_player_id is actually user_id, not player.id
+  const isMyTurn = currentPlayer?.user_id === gameState?.current_turn_player_id
+
+  // Check if current turn is AI
+  const currentTurnPlayer = gameState?.players.find(
+    (p) => p.user_id === gameState?.current_turn_player_id
+  )
+  const isAITurn = currentTurnPlayer?.is_ai === true
+
+  // Auto-execute AI turns
+  useEffect(() => {
+    const executeAITurns = async () => {
+      if (!gameId || !isAITurn || isAITurnProcessing || gameState?.status !== 'in_progress') {
+        return
+      }
+
+      setIsAITurnProcessing(true)
+      setAITurnMessage(`${currentTurnPlayer?.username || 'AI'}가 생각 중...`)
+
+      try {
+        // Call auto-play endpoint to execute all AI turns
+        const response = await client.post(`/solo/${gameId}/auto-play`, {
+          max_turns: 10,
+        })
+
+        if (response.data.game_state) {
+          // Update game state
+          fetchGameState(gameId)
+          fetchValidActions(gameId)
+          fetchPlayerBlueprints(gameId)
+        }
+
+        if (response.data.is_your_turn) {
+          showTurnNotification('당신의 턴입니다!')
+        }
+
+        // Show AI actions in message
+        const actionsCount = response.data.turns_executed || 0
+        if (actionsCount > 0) {
+          setAITurnMessage(`AI가 ${actionsCount}개의 액션을 수행했습니다`)
+          setTimeout(() => setAITurnMessage(null), 2000)
+        } else {
+          setAITurnMessage(null)
+        }
+      } catch (err) {
+        console.error('AI turn execution failed:', err)
+        setAITurnMessage(null)
+      } finally {
+        setIsAITurnProcessing(false)
+      }
+    }
+
+    // Small delay to show "AI is thinking" message
+    const timer = setTimeout(executeAITurns, 1000)
+    return () => clearTimeout(timer)
+  }, [gameId, isAITurn, isAITurnProcessing, gameState?.status, currentTurnPlayer?.username, fetchGameState, fetchValidActions, fetchPlayerBlueprints, showTurnNotification])
 
   // Handle worker selection
   const handleSelectWorker = (workerType: WorkerType) => {
@@ -209,6 +269,71 @@ export function Game() {
     )
   }
 
+  // Determine guidance message based on current state
+  const getGuidanceMessage = (): { message: string; type: 'action' | 'wait' | 'ai' } => {
+    // AI turn
+    if (isAITurn) {
+      return {
+        message: `${currentTurnPlayer?.username || 'AI'}가 턴을 진행 중입니다...`,
+        type: 'ai',
+      }
+    }
+
+    // Not my turn (other human player)
+    if (!isMyTurn) {
+      const turnPlayerName = currentTurnPlayer?.username || '상대방'
+      return {
+        message: `${turnPlayerName}의 턴입니다.`,
+        type: 'wait',
+      }
+    }
+
+    // My turn - check what actions are available
+    if (availableBlueprints.length > 0) {
+      return {
+        message: '청사진을 선택하세요. 게임 종료 시 조건 충족으로 보너스 점수를 받습니다.',
+        type: 'action',
+      }
+    }
+
+    if (availableTiles.length > 0 && !selectedTile) {
+      return {
+        message: '건물 타일을 선택하고 보드에 배치하세요.',
+        type: 'action',
+      }
+    }
+
+    if (selectedTile) {
+      return {
+        message: '타일을 배치할 위치를 선택하세요. (하이라이트된 칸)',
+        type: 'action',
+      }
+    }
+
+    if (selectedWorker) {
+      return {
+        message: `${selectedWorker === 'apprentice' ? '견습생' : '관리'}을 배치할 건물을 선택하세요.`,
+        type: 'action',
+      }
+    }
+
+    // Check if worker placement is available
+    const workerActions = validActions.filter((a) => a.action_type === 'place_worker')
+    if (workerActions.length > 0) {
+      return {
+        message: '일꾼을 선택하여 건물에 배치하거나 턴을 종료하세요.',
+        type: 'action',
+      }
+    }
+
+    return {
+      message: '턴을 종료하세요.',
+      type: 'action',
+    }
+  }
+
+  const guidance = getGuidanceMessage()
+
   return (
     <div className="min-h-screen bg-hanyang-cream p-4">
       {/* Toast notifications */}
@@ -251,6 +376,42 @@ export function Game() {
         </div>
       </header>
 
+      {/* Contextual Guidance Banner */}
+      <div
+        className={`
+          mb-4 p-3 rounded-lg border-2 flex items-center justify-center gap-3 transition-all
+          ${guidance.type === 'action' ? 'bg-hanyang-gold/20 border-hanyang-gold text-hanyang-brown' : ''}
+          ${guidance.type === 'wait' ? 'bg-gray-200 border-gray-400 text-gray-600' : ''}
+          ${guidance.type === 'ai' ? 'bg-blue-100 border-blue-400 text-blue-700' : ''}
+        `}
+      >
+        {guidance.type === 'ai' && (
+          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+              fill="none"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+        )}
+        {guidance.type === 'action' && (
+          <span className="text-xl">👆</span>
+        )}
+        {guidance.type === 'wait' && (
+          <span className="text-xl">⏳</span>
+        )}
+        <span className="font-medium text-lg">{guidance.message}</span>
+      </div>
+
       <div className="grid grid-cols-12 gap-4">
         {/* Left sidebar - Players */}
         <aside className="col-span-3 space-y-4">
@@ -260,7 +421,7 @@ export function Game() {
               key={player.id}
               player={player}
               isCurrentPlayer={player.user_id === user?.id}
-              isCurrentTurn={player.id === gameState.current_turn_player_id}
+              isCurrentTurn={player.user_id === gameState.current_turn_player_id}
               onSelectWorker={handleSelectWorker}
               selectedWorker={selectedWorker}
             />
@@ -306,8 +467,32 @@ export function Game() {
           )}
 
           {!isMyTurn && (
-            <div className="mt-4 text-center text-hanyang-brown/70">
-              다른 플레이어의 턴입니다...
+            <div className="mt-4 text-center">
+              {aiTurnMessage ? (
+                <div className="flex items-center justify-center gap-2 text-hanyang-gold">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  <span>{aiTurnMessage}</span>
+                </div>
+              ) : (
+                <span className="text-hanyang-brown/70">
+                  {isAITurn ? 'AI가 턴을 진행합니다...' : '다른 플레이어의 턴입니다...'}
+                </span>
+              )}
             </div>
           )}
         </main>

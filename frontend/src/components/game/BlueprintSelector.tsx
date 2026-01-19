@@ -23,11 +23,11 @@ export function BlueprintSelector({
   return (
     <div className="p-4 bg-hanyang-paper rounded-lg border border-hanyang-brown/20">
       <h3 className="text-lg font-bold text-hanyang-brown mb-2">
-        \uCCAD\uC0AC\uC9C4 \uC120\uD0DD
+        청사진 선택
       </h3>
       <p className="text-sm text-hanyang-brown/70 mb-4">
-        \uAC8C\uC784 \uC885\uB8CC \uC2DC \uC870\uAC74\uC744 \uCDA9\uC871\uD558\uBA74 \uBCF4\uB108\uC2A4 \uC810\uC218\uB97C \uBC1B\uC2B5\uB2C8\uB2E4.
-        \uD558\uB098\uB97C \uC120\uD0DD\uD558\uC138\uC694.
+        게임 종료 시 조건을 충족하면 보너스 점수를 받습니다.
+        하나를 선택하세요.
       </p>
 
       <div className="space-y-3 mb-4">
@@ -59,7 +59,7 @@ export function BlueprintSelector({
         onClick={onConfirmSelection}
         disabled={!selectedBlueprintId || disabled}
       >
-        {selectedBlueprintId ? '\uCCAD\uC0AC\uC9C4 \uC120\uD0DD \uD655\uC815' : '\uCCAD\uC0AC\uC9C4\uC744 \uC120\uD0DD\uD558\uC138\uC694'}
+        {selectedBlueprintId ? '청사진 선택 확정' : '청사진을 선택하세요'}
       </button>
     </div>
   )
